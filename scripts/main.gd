@@ -13,7 +13,7 @@ var resilience := [38.0, 25.0, 44.0, 20.0, 48.0, 18.0]
 var research := 20
 var day := 1
 var selected_region := 2
-var upgrades: Array[bool] = []
+var upgrades: Array = []
 var event_text := "A new signal has appeared in the global network."
 var ended := false
 var event_timer := 0.0
@@ -323,7 +323,7 @@ func _load_game() -> void:
 		return
 	var data: Dictionary = parsed
 	var version: Variant = data.get("version", 1)
-	if typeof(version) != TYPE_INT or int(version) != 1:
+	if not _is_finite_number(version) or int(version) != 1:
 		push_warning("Campaign save version is unsupported; restoring a safe new campaign.")
 		_recover_from_invalid_save()
 		return
