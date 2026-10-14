@@ -52,7 +52,14 @@ jobs:
           echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
           echo "ANDROID_HOME=/opt/android-sdk" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=/opt/android-sdk" >> "$GITHUB_ENV"
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          mkdir -p /opt/android-sdk/cmdline-tools "$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          curl -fL --retry 3 -o /tmp/android-cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          mkdir -p /tmp/android-cli
+          unzip -q /tmp/android-cmdline-tools.zip -d /tmp/android-cli
+          mkdir -p /opt/android-sdk/cmdline-tools/latest
+          cp -a /tmp/android-cli/cmdline-tools/. /opt/android-sdk/cmdline-tools/latest/
+          yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/opt/android-sdk --licenses >/dev/null
+          /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/opt/android-sdk "platform-tools" "platforms;android-35" "build-tools;35.0.0"
           curl -fL --retry 3 -o /tmp/godot-templates.tpz https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
           unzip -o /tmp/godot-templates.tpz -d /tmp/godot-templates
           cp /tmp/godot-templates/templates/* "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
