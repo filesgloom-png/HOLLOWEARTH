@@ -253,6 +253,9 @@ func _test_pause_resume_persistence() -> void:
 	game.upgrades = [true, false, true, false]
 	game.event_text = "Background persistence test"
 	game._notification(1015)
+	print("DEBUG_PAUSE_SAVE_EXISTS=", FileAccess.file_exists("user://campaign_save.json"))
+	if FileAccess.file_exists("user://campaign_save.json"):
+		print("DEBUG_PAUSE_SAVE_CONTENT=", FileAccess.get_file_as_string("user://campaign_save.json"))
 	_check(_saved_file_is_valid_v1(), "Application pause notification must write a valid version-1 save.")
 	game.research = 1
 	game.day = 2
