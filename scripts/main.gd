@@ -4,6 +4,7 @@ const REGION_NAMES := ["NORTH AMERICA", "SOUTH AMERICA", "EUROPE", "AFRICA", "AS
 const REGION_POS := [Vector2(0.20, 0.34), Vector2(0.29, 0.66), Vector2(0.49, 0.31), Vector2(0.51, 0.58), Vector2(0.70, 0.37), Vector2(0.82, 0.69)]
 const UPGRADE_NAMES := ["Distributed cognition", "Adaptive architecture", "Synthetic identity", "Quantum-inspired compute"]
 const UPGRADE_COSTS := [12, 20, 30, 45]
+const STABILIZE_COST := 8
 const SAVE_PATH := "user://campaign_save.json"
 var influence := [8.0, 4.0, 12.0, 3.0, 10.0, 2.0]
 var resilience := [38.0, 25.0, 44.0, 20.0, 48.0, 18.0]
@@ -134,9 +135,12 @@ func _draw_side_panel(size: Vector2) -> void:
 	draw_string(body_font, Vector2(x + 18, 316), "Human resilience", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#9eb7ca"))
 	_draw_bar(Vector2(x + 18, 330), size.x - x - 60, resilience[selected_region] / 100.0, Color("#ffad68"))
 	draw_string(body_font, Vector2(x + 18, 366), "%d%%" % int(resilience[selected_region]), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
-	draw_string(body_font, Vector2(x + 18, 408), "EVOLUTION", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#dff8ff"))
+	draw_rect(Rect2(x + 14, 388, size.x - x - 52, 32), Color("#183a35") if research >= STABILIZE_COST else Color("#172535"))
+	draw_rect(Rect2(x + 14, 388, size.x - x - 52, 32), Color("#4bc9a4") if research >= STABILIZE_COST else Color("#294354"), false, 1.0)
+	draw_string(body_font, Vector2(x + 24, 408), "STABILIZE REGION  (-%d RP)" % STABILIZE_COST, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#bafbe5") if research >= STABILIZE_COST else Color("#7f97a8"))
+	draw_string(body_font, Vector2(x + 18, 446), "EVOLUTION", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#dff8ff"))
 	for i in UPGRADE_NAMES.size():
-		var y := 438 + i * 48
+		var y := 474 + i * 40
 		var label: String = ("✓ " if upgrades[i] else "+ ") + str(UPGRADE_NAMES[i])
 		draw_rect(Rect2(x + 14, y - 18, size.x - x - 52, 36), Color("#102b3d") if not upgrades[i] else Color("#16443f"))
 		draw_string(body_font, Vector2(x + 24, y + 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9f5ff"))
@@ -189,11 +193,27 @@ func _input(event: InputEvent) -> void:
 			queue_redraw()
 			return
 	var panel_x := size.x * 0.72
+	if pos.x >= panel_x + 8 and pos.x <= size.x - 20 and pos.y >= 388 and pos.y <= 420:
+		_stabilize_region()
+		return
 	for i in UPGRADE_NAMES.size():
-		var y := 420.0 + i * 48.0
-		if pos.x >= panel_x + 8 and pos.x <= size.x - 20 and pos.y >= y and pos.y <= y + 36:
+		var y := 456.0 + i * 40.0
+		if pos.x >= panel_x + 8 and pos.x <= size.x - 20 and pos.y >= y and pos.y <= y + 34:
 			_buy_upgrade(i)
 			return
+
+func _stabilize_region() -> void:
+	if research < STABILIZE_COST or resilience[selected_region] >= 95.0:
+		return
+	research -= STABILIZE_COST
+	resilience[selected_region] = minf(95.0, resilience[selected_region] + 12.0)
+	influence[selected_region] = maxf(0.0, influence[selected_region] - 3.0)
+	event_text = "Containment operation: %s resilience +12, influence -3." % REGION_NAMES[selected_region]
+	log_lines.push_front("DAY %03d  •  %s" % [day, event_text])
+	if log_lines.size() > 4:
+		log_lines.resize(4)
+	_save_game()
+	queue_redraw()
 
 func _buy_upgrade(index: int) -> void:
 	if upgrades[index] or research < UPGRADE_COSTS[index]:
