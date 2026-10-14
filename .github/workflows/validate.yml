@@ -69,8 +69,15 @@ jobs:
           java -version
           test -f export_presets.cfg
           test -s "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_debug.apk"
-          test -d "$ANDROID_HOME"
-          mkdir -p build
+          test -d "$ANDROID_HOME/platform-tools"
+          mkdir -p "$HOME/.config/godot" build
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<'EOF'
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "/opt/android-sdk"
+          export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"
+          EOF
+          cat "$HOME/.config/godot/editor_settings-4.tres"
       - name: Export Android APK
         run: godot --headless --path . --export-debug "Android" build/HOLLOWEARTH-debug.apk
       - name: Verify APK output
