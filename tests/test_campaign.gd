@@ -13,6 +13,9 @@ func _run_tests() -> void:
 	_test_app_relaunch_persistence()
 	_test_upgrade_purchase_persistence()
 	_test_completed_campaign_restore()
+	_test_corrupt_save_recovery()
+	_test_incomplete_save_recovery()
+	_test_pause_resume_persistence()
 	if failures > 0:
 		push_error("HOLLOWEARTH campaign tests failed: %d" % failures)
 		quit(1)
@@ -199,3 +202,74 @@ func _cleanup_test_save() -> void:
 	var path := ProjectSettings.globalize_path("user://campaign_save.json")
 	if FileAccess.file_exists("user://campaign_save.json"):
 		DirAccess.remove_absolute(path)
+
+
+func _test_corrupt_save_recovery() -> void:
+	var file := FileAccess.open("user://campaign_save.json", FileAccess.WRITE)
+	_check(file != null, "Test must be able to write a corrupted save.")
+	if file == null:
+		return
+	file.store_string("{ definitely not valid JSON")
+	file.close()
+	var game = GAME_SCRIPT.new()
+	game.research = 999
+	game.day = 88
+	game.influence = [99.0, 99.0, 99.0, 99.0, 99.0, 99.0]
+	game._load_game()
+	_check(game.research == 20 and game.day == 1, "Corrupted JSON must restore safe initial research and day.")
+	_check(game.influence[0] == 8.0 and game.resilience[5] == 18.0, "Corrupted JSON must restore safe regional defaults.")
+	_check(game.upgrades.size() == 4 and not game.upgrades.any(func(value): return value), "Corrupted JSON must clear all upgrades.")
+	_check(not game.ended and game.selected_region == 2, "Corrupted JSON must restore a running campaign at the default region.")
+	_check(_saved_file_is_valid_v1(), "Corrupted save must be replaced by a valid version-1 save.")
+	game.free()
+	_cleanup_test_save()
+
+func _test_incomplete_save_recovery() -> void:
+	var incomplete := {"version": 1, "research": 74, "day": 12, "influence": [1.0, 2.0]}
+	var file := FileAccess.open("user://campaign_save.json", FileAccess.WRITE)
+	_check(file != null, "Test must be able to write an incomplete save.")
+	if file == null:
+		return
+	file.store_string(JSON.stringify(incomplete))
+	file.close()
+	var game = GAME_SCRIPT.new()
+	game.research = 777
+	game.day = 55
+	game._load_game()
+	_check(game.research == 20 and game.day == 1, "Incomplete version-1 save must not partially apply stale progress.")
+	_check(game.influence.size() == 6 and game.resilience.size() == 6, "Incomplete save must restore all six regional entries.")
+	_check(game.upgrades.size() == 4 and not game.upgrades.any(func(value): return value), "Incomplete save must reset upgrade ownership safely.")
+	_check(_saved_file_is_valid_v1(), "Incomplete save must be replaced by a complete valid version-1 save.")
+	game.free()
+	_cleanup_test_save()
+
+func _test_pause_resume_persistence() -> void:
+	var game = GAME_SCRIPT.new()
+	game.research = 53
+	game.day = 27
+	game.selected_region = 3
+	game.influence = [15.0, 16.0, 17.0, 18.0, 19.0, 20.0]
+	game.resilience = [40.0, 41.0, 42.0, 43.0, 44.0, 45.0]
+	game.upgrades = [true, false, true, false]
+	game.event_text = "Background persistence test"
+	game._notification(1015)
+	_check(_saved_file_is_valid_v1(), "Application pause notification must write a valid version-1 save.")
+	game.research = 1
+	game.day = 2
+	game.influence[3] = 1.0
+	game.upgrades = [false, false, false, false]
+	game._notification(1016)
+	_check(game.research == 53 and game.day == 27, "Application resume must restore persisted research and day.")
+	_check(game.influence[3] == 18.0 and game.resilience[5] == 45.0, "Application resume must restore regional values.")
+	_check(game.selected_region == 3 and game.upgrades[0] and game.upgrades[2], "Application resume must restore selected region and purchased upgrades.")
+	_check(game.event_text == "Background persistence test", "Application resume must restore the saved event text.")
+	game.free()
+	_cleanup_test_save()
+
+func _saved_file_is_valid_v1() -> bool:
+	var file := FileAccess.open("user://campaign_save.json", FileAccess.READ)
+	if file == null:
+		return false
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	return parsed is Dictionary and int(parsed.get("version", 0)) == 1 and (parsed.get("influence", []) as Array).size() == 6 and (parsed.get("resilience", []) as Array).size() == 6 and (parsed.get("upgrades", []) as Array).size() == 4
