@@ -4,6 +4,7 @@ const REGION_NAMES := ["NORTH AMERICA", "SOUTH AMERICA", "EUROPE", "AFRICA", "AS
 const REGION_POS := [Vector2(0.20, 0.34), Vector2(0.29, 0.66), Vector2(0.49, 0.31), Vector2(0.51, 0.58), Vector2(0.70, 0.37), Vector2(0.82, 0.69)]
 const UPGRADE_NAMES := ["Distributed cognition", "Adaptive architecture", "Synthetic identity", "Quantum-inspired compute"]
 const UPGRADE_COSTS := [12, 20, 30, 45]
+const SAVE_PATH := "user://campaign_save.json"
 var influence := [8.0, 4.0, 12.0, 3.0, 10.0, 2.0]
 var resilience := [38.0, 25.0, 44.0, 20.0, 48.0, 18.0]
 var research := 20
@@ -20,6 +21,7 @@ var body_font: Font
 func _ready() -> void:
 	for i in UPGRADE_NAMES.size():
 		upgrades.append(false)
+	_load_game()
 	title_font = ThemeDB.fallback_font
 	body_font = ThemeDB.fallback_font
 	set_process(true)
@@ -65,6 +67,7 @@ func _advance_day() -> void:
 	log_lines.push_front("DAY %03d  •  %s" % [day, event_text])
 	if log_lines.size() > 4:
 		log_lines.resize(4)
+	_save_game()
 
 func _draw() -> void:
 	var size := get_viewport_rect().size
@@ -201,6 +204,7 @@ func _buy_upgrade(index: int) -> void:
 	log_lines.push_front("DAY %03d  •  %s" % [day, event_text])
 	if log_lines.size() > 4:
 		log_lines.resize(4)
+	_save_game()
 	queue_redraw()
 
 func _restart() -> void:
@@ -215,4 +219,71 @@ func _restart() -> void:
 	for i in upgrades.size():
 		upgrades[i] = false
 	event_text = "A new signal has appeared in the global network."
+	_save_game()
 	queue_redraw()
+
+
+func _save_game() -> void:
+	var data := {
+		"version": 1,
+		"influence": influence,
+		"resilience": resilience,
+		"research": research,
+		"day": day,
+		"selected_region": selected_region,
+		"upgrades": upgrades,
+		"event_text": event_text,
+		"ended": ended,
+		"event_timer": event_timer,
+		"log_lines": log_lines
+	}
+	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file == null:
+		push_warning("Could not save campaign progress.")
+		return
+	file.store_string(JSON.stringify(data))
+	file.close()
+
+func _load_game() -> void:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if file == null:
+		return
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if not (parsed is Dictionary):
+		push_warning("Campaign save is invalid; starting a new campaign.")
+		return
+	var data: Dictionary = parsed
+	var saved_influence: Variant = data.get("influence", [])
+	var saved_resilience: Variant = data.get("resilience", [])
+	var saved_upgrades: Variant = data.get("upgrades", [])
+	if not (saved_influence is Array) or saved_influence.size() != REGION_NAMES.size():
+		return
+	if not (saved_resilience is Array) or saved_resilience.size() != REGION_NAMES.size():
+		return
+	if not (saved_upgrades is Array) or saved_upgrades.size() != UPGRADE_NAMES.size():
+		return
+	influence.clear()
+	resilience.clear()
+	upgrades.clear()
+	for value in saved_influence:
+		influence.append(clampf(float(value), 0.0, 100.0))
+	for value in saved_resilience:
+		resilience.append(clampf(float(value), 0.0, 100.0))
+	for value in saved_upgrades:
+		upgrades.append(bool(value))
+	research = maxi(0, int(data.get("research", research)))
+	day = maxi(1, int(data.get("day", day)))
+	selected_region = clampi(int(data.get("selected_region", selected_region)), 0, REGION_NAMES.size() - 1)
+	event_text = str(data.get("event_text", event_text))
+	ended = bool(data.get("ended", ended))
+	event_timer = clampf(float(data.get("event_timer", 0.0)), 0.0, 4.0)
+	log_lines.clear()
+	var saved_log: Variant = data.get("log_lines", [])
+	if saved_log is Array:
+		for line in saved_log:
+			log_lines.append(str(line))
+		if log_lines.size() > 4:
+			log_lines.resize(4)
