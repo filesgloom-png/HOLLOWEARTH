@@ -109,10 +109,10 @@ func _draw_world(size: Vector2) -> void:
 		for i in points.size():
 			draw_line(points[i], points[(i + 1) % points.size()], Color("#24647b"), 1.3)
 	for i in REGION_POS.size():
-		var p := map_rect.position + REGION_POS[i] * map_rect.size
+		var p: Vector2 = map_rect.position + REGION_POS[i] * map_rect.size
 		if i != selected_region:
 			draw_line(p, map_rect.position + REGION_POS[selected_region] * map_rect.size, Color(0.22, 0.77, 0.92, 0.16), 1.0)
-		var radius := 8.0 + influence[i] * 0.11
+		var radius: float = 8.0 + float(influence[i]) * 0.11
 		draw_circle(p, radius + 6, Color(0.1, 0.75, 1.0, 0.08))
 		draw_circle(p, radius, Color("#47e0f0") if i == selected_region else Color("#2785a6"))
 		draw_arc(p, radius + 3, 0.0, TAU, 32, Color("#a5f7ff"), 1.2)
@@ -134,7 +134,7 @@ func _draw_side_panel(size: Vector2) -> void:
 	draw_string(body_font, Vector2(x + 18, 408), "EVOLUTION", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#dff8ff"))
 	for i in UPGRADE_NAMES.size():
 		var y := 438 + i * 48
-		var label := ("✓ " if upgrades[i] else "+ ") + UPGRADE_NAMES[i]
+		var label: String = ("✓ " if upgrades[i] else "+ ") + str(UPGRADE_NAMES[i])
 		draw_rect(Rect2(x + 14, y - 18, size.x - x - 52, 36), Color("#102b3d") if not upgrades[i] else Color("#16443f"))
 		draw_string(body_font, Vector2(x + 24, y + 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9f5ff"))
 		draw_string(body_font, Vector2(size.x - 46, y + 4), "OWN" if upgrades[i] else str(UPGRADE_COSTS[i]), HORIZONTAL_ALIGNMENT_RIGHT, -1, 10, Color("#73f2c2"))
@@ -177,7 +177,7 @@ func _input(event: InputEvent) -> void:
 		var nearest_distance := 100000.0
 		for i in REGION_POS.size():
 			var p := map_rect.position + REGION_POS[i] * map_rect.size
-			var d := p.distance_to(pos)
+			var d: float = p.distance_to(pos)
 			if d < nearest_distance:
 				nearest_distance = d
 				nearest = i
