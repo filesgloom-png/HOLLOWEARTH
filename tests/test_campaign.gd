@@ -16,6 +16,10 @@ func _run_tests() -> void:
 	_test_corrupt_save_recovery()
 	_test_incomplete_save_recovery()
 	_test_pause_resume_persistence()
+	_test_invalid_save_types_recovery()
+	_test_wrong_region_array_lengths()
+	_test_partial_corruption_recovery()
+	_test_numeric_bounds()
 	if failures > 0:
 		push_error("HOLLOWEARTH campaign tests failed: %d" % failures)
 		quit(1)
@@ -94,6 +98,7 @@ func _test_legacy_save_compatibility() -> void:
 	_check(game.selected_region == 4, "Version-1 selected region must load.")
 	_check(game.upgrades.size() == 4 and game.upgrades[0] and game.upgrades[2], "Version-1 upgrades must load unchanged.")
 	_check(game.influence.size() == 6 and game.resilience.size() == 6, "Version-1 regional arrays must remain compatible.")
+	_check(game.influence[2] == 12.0 and game.resilience[4] == 48.0, "Valid version-1 regional progress must load without modification.")
 	game._save_game()
 	var saved_file := FileAccess.open("user://campaign_save.json", FileAccess.READ)
 	_check(saved_file != null, "Saving after legacy load must create a readable save.")
@@ -263,6 +268,116 @@ func _test_pause_resume_persistence() -> void:
 	_check(game.influence[3] == 18.0 and game.resilience[5] == 45.0, "Application resume must restore regional values.")
 	_check(game.selected_region == 3 and game.upgrades[0] and game.upgrades[2], "Application resume must restore selected region and purchased upgrades.")
 	_check(game.event_text == "Background persistence test", "Application resume must restore the saved event text.")
+	game.free()
+	_cleanup_test_save()
+
+func _valid_test_save() -> Dictionary:
+	return {
+		"version": 1,
+		"influence": [8.0, 4.0, 12.0, 3.0, 10.0, 2.0],
+		"resilience": [38.0, 25.0, 44.0, 20.0, 48.0, 18.0],
+		"research": 37,
+		"day": 9,
+		"selected_region": 4,
+		"upgrades": [true, false, true, false],
+		"event_text": "Save validation test",
+		"ended": false,
+		"event_timer": 1.25,
+		"log_lines": ["DAY 009  •  Save validation test"]
+	}
+
+func _write_test_save(data: Dictionary) -> void:
+	var file := FileAccess.open("user://campaign_save.json", FileAccess.WRITE)
+	_check(file != null, "Test must be able to write a save fixture.")
+	if file == null:
+		return
+	file.store_string(JSON.stringify(data))
+	file.close()
+
+func _assert_invalid_save_recovery(data: Dictionary, label: String) -> void:
+	_write_test_save(data)
+	var game = GAME_SCRIPT.new()
+	game.research = 999
+	game.day = 99
+	game._load_game()
+	_check(game.research == 20 and game.day == 1, label + " must reset progress instead of applying partial values.")
+	_check(game.influence.size() == 6 and game.resilience.size() == 6, label + " must restore six valid regions.")
+	_check(game.influence[0] == 8.0 and game.resilience[5] == 18.0, label + " must restore safe regional defaults.")
+	_check(game.upgrades.size() == 4 and not game.upgrades.any(func(value): return value), label + " must clear invalid upgrade state.")
+	_check(_saved_file_is_valid_v1(), label + " must be replaced with a complete version-1 save.")
+	game.free()
+	_cleanup_test_save()
+
+func _test_invalid_save_types_recovery() -> void:
+	var bad := _valid_test_save()
+	bad["research"] = "thirty-seven"
+	_assert_invalid_save_recovery(bad, "String research value")
+
+	bad = _valid_test_save()
+	bad["influence"] = [8.0, 4.0, "damaged", 3.0, 10.0, 2.0]
+	_assert_invalid_save_recovery(bad, "String influence entry")
+
+	bad = _valid_test_save()
+	bad["resilience"] = [38.0, 25.0, 44.0, false, 48.0, 18.0]
+	_assert_invalid_save_recovery(bad, "Boolean resilience entry")
+
+	bad = _valid_test_save()
+	bad["upgrades"] = [true, 1, false, false]
+	_assert_invalid_save_recovery(bad, "Non-Boolean upgrade entry")
+
+	bad = _valid_test_save()
+	bad["ended"] = "false"
+	_assert_invalid_save_recovery(bad, "String ended flag")
+
+	bad = _valid_test_save()
+	bad["event_text"] = 123
+	_assert_invalid_save_recovery(bad, "Numeric event text")
+
+	bad = _valid_test_save()
+	bad["log_lines"] = ["valid line", 7]
+	_assert_invalid_save_recovery(bad, "Non-string campaign log")
+
+	bad = _valid_test_save()
+	bad["version"] = 2
+	_assert_invalid_save_recovery(bad, "Unsupported save version")
+
+func _test_wrong_region_array_lengths() -> void:
+	var bad := _valid_test_save()
+	bad["influence"] = [8.0, 4.0]
+	_assert_invalid_save_recovery(bad, "Short influence array")
+
+	bad = _valid_test_save()
+	bad["resilience"] = [38.0, 25.0, 44.0, 20.0, 48.0, 18.0, 50.0]
+	_assert_invalid_save_recovery(bad, "Oversized resilience array")
+
+	bad = _valid_test_save()
+	bad["upgrades"] = [true, false]
+	_assert_invalid_save_recovery(bad, "Short upgrades array")
+
+func _test_partial_corruption_recovery() -> void:
+	var bad := _valid_test_save()
+	bad["day"] = 77
+	bad["research"] = 123
+	bad["resilience"] = [38.0, 25.0, "corrupt", 20.0, 48.0, 18.0]
+	_assert_invalid_save_recovery(bad, "Partially corrupted save")
+
+func _test_numeric_bounds() -> void:
+	var bounded := _valid_test_save()
+	bounded["influence"] = [-50.0, 1e30, 12.0, 3.0, 10.0, 2.0]
+	bounded["resilience"] = [-50.0, 1e30, 44.0, 20.0, 48.0, 18.0]
+	bounded["research"] = -999
+	bounded["day"] = 1e30
+	bounded["selected_region"] = -99
+	bounded["event_timer"] = 99.0
+	_write_test_save(bounded)
+	var game = GAME_SCRIPT.new()
+	game._load_game()
+	_check(game.influence[0] == 0.0 and game.influence[1] == 100.0, "Negative and oversized influence must be clamped to 0..100.")
+	_check(game.resilience[0] == 0.0 and game.resilience[1] == 95.0, "Negative and oversized resilience must be clamped to 0..95.")
+	_check(game.research == 0, "Negative research must be clamped to zero.")
+	_check(game.day == 1000000, "Oversized day must be clamped to the supported upper bound.")
+	_check(game.selected_region == 0, "Negative selected region must be clamped to the first region.")
+	_check(game.event_timer == 4.0, "Oversized event timer must be clamped to four seconds.")
 	game.free()
 	_cleanup_test_save()
 
