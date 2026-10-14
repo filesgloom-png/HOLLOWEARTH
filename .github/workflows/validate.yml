@@ -39,6 +39,8 @@ jobs:
           godot --version
       - name: Import and parse project
         run: godot --headless --editor --path . --quit
+      - name: Campaign save and regional specialization tests
+        run: godot --headless --path . --script res://tests/test_campaign.gd
       - name: Runtime smoke test
         run: timeout 20s godot --headless --path . --quit-after 5
 
