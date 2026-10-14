@@ -98,7 +98,7 @@ jobs:
           test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           godot --headless --editor --path . --quit --verbose
       - name: Export Android APK
-        run: godot --headless --editor --verbose --path . --export-debug "Android" build/HOLLOWEARTH-debug.apk
+        run: godot --headless --verbose --path . --export-debug "Android" build/HOLLOWEARTH-debug.apk
       - name: Verify APK output
         run: |
           test -s build/HOLLOWEARTH-debug.apk
