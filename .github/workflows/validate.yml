@@ -1,4 +1,4 @@
-name: HOLLOWEARTH CI
+name: HOLLOWEARTH CI and Android APK
 
 on:
   push:
@@ -26,8 +26,40 @@ jobs:
           test -f project.godot
           test -f scenes/main.tscn
           test -f scripts/main.gd
+          test -f export_presets.cfg
           godot --version
       - name: Import and parse project
         run: godot --headless --editor --path . --quit
       - name: Runtime smoke test
         run: timeout 20s godot --headless --path . --quit-after 5
+
+  android-build:
+    name: Android ARM64 APK
+    needs: validate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.5.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure Git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Verify Godot and export templates
+        run: |
+          godot --version
+          test -f export_presets.cfg
+          mkdir -p build
+      - name: Export Android APK
+        run: godot --headless --path . --export-debug "Android" build/HOLLOWEARTH-debug.apk
+      - name: Verify APK output
+        run: |
+          test -s build/HOLLOWEARTH-debug.apk
+          file build/HOLLOWEARTH-debug.apk
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HOLLOWEARTH-debug-apk
+          path: build/HOLLOWEARTH-debug.apk
+          if-no-files-found: error
+          retention-days: 14
