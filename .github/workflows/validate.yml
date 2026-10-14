@@ -1,0 +1,32 @@
+name: HOLLOWEARTH CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Godot 4.5.1 headless validation
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.5.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Show revision
+        run: |
+          echo "HEAD=$(git rev-parse HEAD)"
+          git status --short
+      - name: Validate project files
+        run: |
+          test -f project.godot
+          test -f scenes/main.tscn
+          test -f scripts/main.gd
+          godot --version
+      - name: Import and parse project
+        run: godot --headless --editor --path . --quit
+      - name: Runtime smoke test
+        run: timeout 20s godot --headless --path . --quit-after 5
