@@ -64,9 +64,9 @@ jobs:
           unzip -o /tmp/godot-templates.tpz -d /tmp/godot-templates
           cp /tmp/godot-templates/templates/* "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
           test -s "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_source.zip"
-          mkdir -p android
-          unzip -q "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_source.zip" -d android
-          test -f android/build.gradle
+          mkdir -p android/build
+          unzip -q "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_source.zip" -d android/build
+          test -f android/build/build.gradle
       - name: Verify Godot and export prerequisites
         run: |
           godot --version
