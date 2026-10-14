@@ -17,7 +17,7 @@ var upgrades: Array = []
 var event_text := "A new signal has appeared in the global network."
 var ended := false
 var event_timer := 0.0
-var log_lines: Array[String] = []
+var log_lines: Array = []
 var title_font: Font
 var body_font: Font
 
