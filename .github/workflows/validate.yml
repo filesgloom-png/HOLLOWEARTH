@@ -11,11 +11,15 @@ jobs:
   validate:
     name: Godot 4.5.1 headless validation
     runs-on: ubuntu-latest
-    container:
-      image: barichello/godot-ci:4.5.1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install Godot 4.5.1
+        run: |
+          curl -fL --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /opt/godot
+          chmod +x /opt/godot/Godot_v4.5.1-stable_linux.x86_64
+          ln -sf /opt/godot/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
       - name: Show revision
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -38,11 +42,15 @@ jobs:
     needs: validate
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    container:
-      image: barichello/godot-ci:4.5.1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install Godot 4.5.1
+        run: |
+          curl -fL --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /opt/godot
+          chmod +x /opt/godot/Godot_v4.5.1-stable_linux.x86_64
+          ln -sf /opt/godot/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
       - name: Configure Git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Install Android export prerequisites
