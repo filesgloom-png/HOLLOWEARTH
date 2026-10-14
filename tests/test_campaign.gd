@@ -252,16 +252,13 @@ func _test_pause_resume_persistence() -> void:
 	game.resilience = [40.0, 41.0, 42.0, 43.0, 44.0, 45.0]
 	game.upgrades = [true, false, true, false]
 	game.event_text = "Background persistence test"
-	game._notification(1015)
-	print("DEBUG_PAUSE_SAVE_EXISTS=", FileAccess.file_exists("user://campaign_save.json"))
-	if FileAccess.file_exists("user://campaign_save.json"):
-		print("DEBUG_PAUSE_SAVE_CONTENT=", FileAccess.get_file_as_string("user://campaign_save.json"))
+	game._notification(game.NOTIFICATION_APPLICATION_PAUSED)
 	_check(_saved_file_is_valid_v1(), "Application pause notification must write a valid version-1 save.")
 	game.research = 1
 	game.day = 2
 	game.influence[3] = 1.0
 	game.upgrades = [false, false, false, false]
-	game._notification(1016)
+	game._notification(game.NOTIFICATION_APPLICATION_RESUMED)
 	_check(game.research == 53 and game.day == 27, "Application resume must restore persisted research and day.")
 	_check(game.influence[3] == 18.0 and game.resilience[5] == 45.0, "Application resume must restore regional values.")
 	_check(game.selected_region == 3 and game.upgrades[0] and game.upgrades[2], "Application resume must restore selected region and purchased upgrades.")
