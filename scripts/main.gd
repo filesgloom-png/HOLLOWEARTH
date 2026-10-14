@@ -176,7 +176,7 @@ func _input(event: InputEvent) -> void:
 		var nearest := -1
 		var nearest_distance := 100000.0
 		for i in REGION_POS.size():
-			var p := map_rect.position + REGION_POS[i] * map_rect.size
+			var p: Vector2 = map_rect.position + REGION_POS[i] * map_rect.size
 			var d: float = p.distance_to(pos)
 			if d < nearest_distance:
 				nearest_distance = d
