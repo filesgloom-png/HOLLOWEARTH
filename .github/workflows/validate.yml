@@ -76,7 +76,7 @@ jobs:
           mkdir -p "$HOME/android-sdk/cmdline-tools/latest"
           cp -a /tmp/android-cli/cmdline-tools/. "$HOME/android-sdk/cmdline-tools/latest/"
           yes | "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$HOME/android-sdk" --licenses >/dev/null
-          "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$HOME/android-sdk" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;23.2.8568313"
+          "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$HOME/android-sdk" "platform-tools" "platforms;android-35" "build-tools;35.0.1" "platforms;android-35" "cmake;3.10.2.4988404" "ndk;28.1.13356709"
           curl -fL --retry 3 -o /tmp/godot-templates.tpz https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
           unzip -o /tmp/godot-templates.tpz -d /tmp/godot-templates
           cp /tmp/godot-templates/templates/* "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
@@ -91,7 +91,7 @@ jobs:
           test -f export_presets.cfg
           test -s "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_debug.apk"
           test -d "$ANDROID_HOME/platform-tools"
-          test -d "$ANDROID_HOME/ndk/23.2.8568313"
+          test -d "$ANDROID_HOME/ndk/28.1.13356709"
           mkdir -p "$HOME/.config/godot" build
           printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '[resource]' "export/android/android_sdk_path = \"$ANDROID_HOME\"" "export/android/java_sdk_path = \"$JAVA_HOME\"" > "$HOME/.config/godot/editor_settings-4.5.tres"
           cat "$HOME/.config/godot/editor_settings-4.5.tres"
@@ -107,6 +107,7 @@ jobs:
         run: |
           test -s build/HOLLOWEARTH-debug.apk
           file build/HOLLOWEARTH-debug.apk
+          stat -c 'APK_SIZE_BYTES=%s' build/HOLLOWEARTH-debug.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
