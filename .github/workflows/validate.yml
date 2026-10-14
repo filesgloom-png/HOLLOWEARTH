@@ -71,13 +71,13 @@ jobs:
           test -s "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_debug.apk"
           test -d "$ANDROID_HOME/platform-tools"
           mkdir -p "$HOME/.config/godot" build
-          cat > "$HOME/.config/godot/editor_settings-4.tres" <<'EOF'
+          cat > "$HOME/.config/godot/editor_settings-4.5.tres" <<'EOF'
           [gd_resource type="EditorSettings" format=3]
           [resource]
           export/android/android_sdk_path = "/usr/lib/android-sdk"
           export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"
           EOF
-          cat "$HOME/.config/godot/editor_settings-4.tres"
+          cat "$HOME/.config/godot/editor_settings-4.5.tres"
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "JAVA_HOME=$JAVA_HOME"
           test -x "$JAVA_HOME/bin/java"
