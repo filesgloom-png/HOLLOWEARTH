@@ -261,6 +261,29 @@ func _restart() -> void:
 	queue_redraw()
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_save_game()
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		_load_game()
+		queue_redraw()
+
+func _reset_campaign_state() -> void:
+	influence = [8.0, 4.0, 12.0, 3.0, 10.0, 2.0]
+	resilience = [38.0, 25.0, 44.0, 20.0, 48.0, 18.0]
+	research = 20
+	day = 1
+	selected_region = 2
+	upgrades = [false, false, false, false]
+	event_text = "A new signal has appeared in the global network."
+	ended = false
+	event_timer = 0.0
+	log_lines.clear()
+
+func _recover_from_invalid_save() -> void:
+	_reset_campaign_state()
+	_save_game()
+
 func _save_game() -> void:
 	var data := {
 		"version": 1,
@@ -291,17 +314,24 @@ func _load_game() -> void:
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	file.close()
 	if not (parsed is Dictionary):
-		push_warning("Campaign save is invalid; starting a new campaign.")
+		push_warning("Campaign save is invalid; restoring a safe new campaign.")
+		_recover_from_invalid_save()
 		return
 	var data: Dictionary = parsed
 	var saved_influence: Variant = data.get("influence", [])
 	var saved_resilience: Variant = data.get("resilience", [])
 	var saved_upgrades: Variant = data.get("upgrades", [])
 	if not (saved_influence is Array) or saved_influence.size() != REGION_NAMES.size():
+		push_warning("Campaign save is incomplete; restoring a safe new campaign.")
+		_recover_from_invalid_save()
 		return
 	if not (saved_resilience is Array) or saved_resilience.size() != REGION_NAMES.size():
+		push_warning("Campaign save is incomplete; restoring a safe new campaign.")
+		_recover_from_invalid_save()
 		return
 	if not (saved_upgrades is Array) or saved_upgrades.size() != UPGRADE_NAMES.size():
+		push_warning("Campaign save is incomplete; restoring a safe new campaign.")
+		_recover_from_invalid_save()
 		return
 	influence.clear()
 	resilience.clear()
