@@ -10,6 +10,9 @@ func _run_tests() -> void:
 	_test_region_specializations()
 	_test_containment_specialization()
 	_test_legacy_save_compatibility()
+	_test_app_relaunch_persistence()
+	_test_upgrade_purchase_persistence()
+	_test_completed_campaign_restore()
 	if failures > 0:
 		push_error("HOLLOWEARTH campaign tests failed: %d" % failures)
 		quit(1)
@@ -105,3 +108,94 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures += 1
 		push_error("TEST FAILED: " + message)
+
+
+func _test_app_relaunch_persistence() -> void:
+	var game = GAME_SCRIPT.new()
+	game.influence = [18.0, 14.0, 22.0, 13.0, 20.0, 12.0]
+	game.resilience = [48.0, 35.0, 54.0, 30.0, 58.0, 28.0]
+	game.research = 67
+	game.day = 42
+	game.selected_region = 4
+	game.upgrades = [true, false, true, false]
+	game.event_text = "Relaunch persistence test"
+	game.ended = false
+	game.log_lines = ["DAY 042  •  Relaunch persistence test"]
+	game._save_game()
+	var relaunched = GAME_SCRIPT.new()
+	relaunched._load_game()
+	_check(relaunched.day == 42 and relaunched.research == 67, "A fresh app instance must restore day and research after relaunch.")
+	_check(relaunched.selected_region == 4, "A fresh app instance must restore the selected region.")
+	_check(relaunched.influence[0] == 18.0 and relaunched.resilience[4] == 58.0, "A fresh app instance must restore regional state.")
+	_check(relaunched.upgrades[0] and relaunched.upgrades[2] and not relaunched.upgrades[1], "A fresh app instance must restore unlocked upgrades.")
+	_check(relaunched.event_text == "Relaunch persistence test" and relaunched.log_lines.size() == 1, "A fresh app instance must restore event and log state.")
+	relaunched._restart()
+	var restarted = GAME_SCRIPT.new()
+	restarted._load_game()
+	_check(restarted.day == 1 and restarted.research == 20, "Restart must persist the new campaign's initial day and research.")
+	_check(restarted.selected_region == 2 and not restarted.ended, "Restart must restore the default region and running state.")
+	_check(restarted.upgrades.size() == 4 and not restarted.upgrades.any(func(value): return value), "Restart must clear all previously purchased upgrades.")
+	_check(restarted.influence[0] == 8.0 and restarted.resilience[4] == 48.0, "Restart must persist default regional values.")
+	game.free()
+	relaunched.free()
+	restarted.free()
+	_cleanup_test_save()
+
+func _test_upgrade_purchase_persistence() -> void:
+	var game = GAME_SCRIPT.new()
+	game.research = 100
+	game.upgrades = [false, false, false, false]
+	game.log_lines.clear()
+	game._buy_upgrade(1)
+	_check(game.research == 80, "Buying Adaptive architecture must deduct its 20 RP cost.")
+	_check(game.upgrades[1], "Buying an upgrade must mark it as owned before saving.")
+	var relaunched = GAME_SCRIPT.new()
+	relaunched._load_game()
+	_check(relaunched.research == 80, "Research balance after an upgrade purchase must survive relaunch.")
+	_check(relaunched.upgrades[1], "Purchased upgrade ownership must survive relaunch.")
+	_check(not relaunched.upgrades[0] and not relaunched.upgrades[2] and not relaunched.upgrades[3], "Unpurchased upgrades must remain locked after relaunch.")
+	var saved_file := FileAccess.open("user://campaign_save.json", FileAccess.READ)
+	if saved_file != null:
+		var parsed: Variant = JSON.parse_string(saved_file.get_as_text())
+		saved_file.close()
+		_check(parsed is Dictionary and int(parsed.get("version", 0)) == 1, "Upgrade purchase must keep the version-1 save format.")
+	else:
+		_check(false, "Upgrade purchase must leave a readable save file.")
+	game.free()
+	relaunched.free()
+	_cleanup_test_save()
+
+func _test_completed_campaign_restore() -> void:
+	var game = GAME_SCRIPT.new()
+	game.influence = [99.0, 91.0, 92.0, 93.0, 94.0, 95.0]
+	game.resilience = [80.0, 81.0, 82.0, 83.0, 84.0, 85.0]
+	game.research = 211
+	game.day = 180
+	game.selected_region = 5
+	game.upgrades = [true, true, false, true]
+	game.ended = true
+	game.event_text = "CONTAINMENT: humanity stabilised the network."
+	game.log_lines = ["DAY 180  •  " + game.event_text]
+	game._save_game()
+	var relaunched = GAME_SCRIPT.new()
+	relaunched._load_game()
+	_check(relaunched.ended, "A completed campaign must remain completed after relaunch.")
+	_check(relaunched.day == 180 and relaunched.selected_region == 5, "Completed campaign day and selected region must be restored.")
+	_check(relaunched.event_text == "CONTAINMENT: humanity stabilised the network.", "The completed campaign result must be restored.")
+	_check(relaunched.upgrades[0] and relaunched.upgrades[1] and relaunched.upgrades[3], "Completed campaign upgrade ownership must be restored.")
+	_check(relaunched.influence[0] == 99.0 and relaunched.resilience[5] == 85.0, "Completed campaign regional values must be restored.")
+	var saved_file := FileAccess.open("user://campaign_save.json", FileAccess.READ)
+	if saved_file != null:
+		var parsed: Variant = JSON.parse_string(saved_file.get_as_text())
+		saved_file.close()
+		_check(parsed is Dictionary and int(parsed.get("version", 0)) == 1, "Completed campaign save must remain version 1.")
+	else:
+		_check(false, "Completed campaign must have a readable save file.")
+	game.free()
+	relaunched.free()
+	_cleanup_test_save()
+
+func _cleanup_test_save() -> void:
+	var path := ProjectSettings.globalize_path("user://campaign_save.json")
+	if FileAccess.file_exists("user://campaign_save.json"):
+		DirAccess.remove_absolute(path)
