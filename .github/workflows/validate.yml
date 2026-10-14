@@ -45,10 +45,24 @@ jobs:
         uses: actions/checkout@v4
       - name: Configure Git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - name: Verify Godot and export templates
+      - name: Install Android export prerequisites
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends openjdk-17-jdk fontconfig unzip curl
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=/opt/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=/opt/android-sdk" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          curl -fL --retry 3 -o /tmp/godot-templates.tpz https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
+          unzip -o /tmp/godot-templates.tpz -d /tmp/godot-templates
+          cp /tmp/godot-templates/templates/* "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
+      - name: Verify Godot and export prerequisites
         run: |
           godot --version
+          java -version
           test -f export_presets.cfg
+          test -s "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_debug.apk"
+          test -d "$ANDROID_HOME"
           mkdir -p build
       - name: Export Android APK
         run: godot --headless --path . --export-debug "Android" build/HOLLOWEARTH-debug.apk
