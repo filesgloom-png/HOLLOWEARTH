@@ -5,6 +5,8 @@ const REGION_POS := [Vector2(0.20, 0.34), Vector2(0.29, 0.66), Vector2(0.49, 0.3
 const UPGRADE_NAMES := ["Distributed cognition", "Adaptive architecture", "Synthetic identity", "Quantum-inspired compute"]
 const UPGRADE_COSTS := [12, 20, 30, 45]
 const STABILIZE_COST := 8
+const REGION_SPECIALIZATIONS := ["RESEARCH HUB", "CULTURAL RESILIENCE", "OPEN SCIENCE", "COMMUNITY NETWORKS", "HYPERCONNECTIVITY", "CONTAINMENT GRID"]
+const REGION_SPECIALIZATION_EFFECTS := ["+1 RP every 2 days", "Influence growth -20%", "+2 RP every 5 days", "Resilience +0.45/day", "Influence growth +0.30/day", "Containment resilience +6"]
 const SAVE_PATH := "user://campaign_save.json"
 var influence := [8.0, 4.0, 12.0, 3.0, 10.0, 2.0]
 var resilience := [38.0, 25.0, 44.0, 20.0, 48.0, 18.0]
@@ -40,11 +42,22 @@ func _process(delta: float) -> void:
 func _advance_day() -> void:
 	day += 1
 	research += 3
+	if day % 2 == 0:
+		research += 1
+	if day % 5 == 0:
+		research += 2
 	var total := 0.0
 	for i in influence.size():
 		var growth: float = 0.7 + float(upgrades.count(true)) * 0.12
+		if i == 1:
+			growth *= 0.8
+		elif i == 4:
+			growth += 0.30
 		influence[i] = minf(100.0, influence[i] + growth * (1.0 - resilience[i] / 180.0))
-		resilience[i] = minf(95.0, resilience[i] + 0.22 + influence[i] * 0.012)
+		var resilience_gain: float = 0.22 + influence[i] * 0.012
+		if i == 3:
+			resilience_gain += 0.45
+		resilience[i] = minf(95.0, resilience[i] + resilience_gain)
 		total += influence[i]
 	if day % 5 == 0:
 		var event_index := randi_range(0, 2)
@@ -135,12 +148,14 @@ func _draw_side_panel(size: Vector2) -> void:
 	draw_string(body_font, Vector2(x + 18, 316), "Human resilience", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#9eb7ca"))
 	_draw_bar(Vector2(x + 18, 330), size.x - x - 60, resilience[selected_region] / 100.0, Color("#ffad68"))
 	draw_string(body_font, Vector2(x + 18, 366), "%d%%" % int(resilience[selected_region]), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
-	draw_rect(Rect2(x + 14, 388, size.x - x - 52, 32), Color("#183a35") if research >= STABILIZE_COST else Color("#172535"))
-	draw_rect(Rect2(x + 14, 388, size.x - x - 52, 32), Color("#4bc9a4") if research >= STABILIZE_COST else Color("#294354"), false, 1.0)
-	draw_string(body_font, Vector2(x + 24, 408), "STABILIZE REGION  (-%d RP)" % STABILIZE_COST, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#bafbe5") if research >= STABILIZE_COST else Color("#7f97a8"))
-	draw_string(body_font, Vector2(x + 18, 446), "EVOLUTION", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#dff8ff"))
+	draw_string(body_font, Vector2(x + 18, 388), REGION_SPECIALIZATIONS[selected_region], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#72f0c1"))
+	draw_string(body_font, Vector2(x + 18, 406), REGION_SPECIALIZATION_EFFECTS[selected_region], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#9eb7ca"))
+	draw_rect(Rect2(x + 14, 420, size.x - x - 52, 28), Color("#183a35") if research >= STABILIZE_COST else Color("#172535"))
+	draw_rect(Rect2(x + 14, 420, size.x - x - 52, 28), Color("#4bc9a4") if research >= STABILIZE_COST else Color("#294354"), false, 1.0)
+	draw_string(body_font, Vector2(x + 24, 438), "STABILIZE REGION  (-%d RP)" % STABILIZE_COST, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#bafbe5") if research >= STABILIZE_COST else Color("#7f97a8"))
+	draw_string(body_font, Vector2(x + 18, 474), "EVOLUTION", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#dff8ff"))
 	for i in UPGRADE_NAMES.size():
-		var y := 474 + i * 40
+		var y := 500 + i * 34
 		var label: String = ("✓ " if upgrades[i] else "+ ") + str(UPGRADE_NAMES[i])
 		draw_rect(Rect2(x + 14, y - 18, size.x - x - 52, 36), Color("#102b3d") if not upgrades[i] else Color("#16443f"))
 		draw_string(body_font, Vector2(x + 24, y + 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9f5ff"))
@@ -193,12 +208,12 @@ func _input(event: InputEvent) -> void:
 			queue_redraw()
 			return
 	var panel_x := size.x * 0.72
-	if pos.x >= panel_x + 8 and pos.x <= size.x - 20 and pos.y >= 388 and pos.y <= 420:
+	if pos.x >= panel_x + 8 and pos.x <= size.x - 20 and pos.y >= 420 and pos.y <= 448:
 		_stabilize_region()
 		return
 	for i in UPGRADE_NAMES.size():
-		var y := 456.0 + i * 40.0
-		if pos.x >= panel_x + 8 and pos.x <= size.x - 20 and pos.y >= y and pos.y <= y + 34:
+		var y := 484.0 + i * 34.0
+		if pos.x >= panel_x + 8 and pos.x <= size.x - 20 and pos.y >= y and pos.y <= y + 32:
 			_buy_upgrade(i)
 			return
 
@@ -206,9 +221,12 @@ func _stabilize_region() -> void:
 	if research < STABILIZE_COST or resilience[selected_region] >= 95.0:
 		return
 	research -= STABILIZE_COST
-	resilience[selected_region] = minf(95.0, resilience[selected_region] + 12.0)
+	var resilience_bonus := 12.0
+	if selected_region == 5:
+		resilience_bonus += 6.0
+	resilience[selected_region] = minf(95.0, resilience[selected_region] + resilience_bonus)
 	influence[selected_region] = maxf(0.0, influence[selected_region] - 3.0)
-	event_text = "Containment operation: %s resilience +12, influence -3." % REGION_NAMES[selected_region]
+	event_text = "Containment operation: %s resilience +%d, influence -3." % [REGION_NAMES[selected_region], int(resilience_bonus)]
 	log_lines.push_front("DAY %03d  •  %s" % [day, event_text])
 	if log_lines.size() > 4:
 		log_lines.resize(4)
