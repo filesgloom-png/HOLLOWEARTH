@@ -305,6 +305,10 @@ func _save_game() -> void:
 	file.store_string(JSON.stringify(data))
 	file.close()
 
+func _is_finite_number(value: Variant) -> bool:
+	var value_type := typeof(value)
+	return (value_type == TYPE_INT or value_type == TYPE_FLOAT) and is_finite(float(value))
+
 func _load_game() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
 		return
@@ -318,40 +322,82 @@ func _load_game() -> void:
 		_recover_from_invalid_save()
 		return
 	var data: Dictionary = parsed
+	var version: Variant = data.get("version", 1)
+	if typeof(version) != TYPE_INT or int(version) != 1:
+		push_warning("Campaign save version is unsupported; restoring a safe new campaign.")
+		_recover_from_invalid_save()
+		return
+
 	var saved_influence: Variant = data.get("influence", [])
 	var saved_resilience: Variant = data.get("resilience", [])
 	var saved_upgrades: Variant = data.get("upgrades", [])
 	if not (saved_influence is Array) or saved_influence.size() != REGION_NAMES.size():
-		push_warning("Campaign save is incomplete; restoring a safe new campaign.")
+		push_warning("Campaign influence data is incomplete; restoring a safe new campaign.")
 		_recover_from_invalid_save()
 		return
 	if not (saved_resilience is Array) or saved_resilience.size() != REGION_NAMES.size():
-		push_warning("Campaign save is incomplete; restoring a safe new campaign.")
+		push_warning("Campaign resilience data is incomplete; restoring a safe new campaign.")
 		_recover_from_invalid_save()
 		return
 	if not (saved_upgrades is Array) or saved_upgrades.size() != UPGRADE_NAMES.size():
-		push_warning("Campaign save is incomplete; restoring a safe new campaign.")
+		push_warning("Campaign upgrade data is incomplete; restoring a safe new campaign.")
 		_recover_from_invalid_save()
 		return
+
+	for value in saved_influence:
+		if not _is_finite_number(value):
+			push_warning("Campaign influence data contains an invalid type; restoring a safe new campaign.")
+			_recover_from_invalid_save()
+			return
+	for value in saved_resilience:
+		if not _is_finite_number(value):
+			push_warning("Campaign resilience data contains an invalid type; restoring a safe new campaign.")
+			_recover_from_invalid_save()
+			return
+	for value in saved_upgrades:
+		if typeof(value) != TYPE_BOOL:
+			push_warning("Campaign upgrade data contains an invalid type; restoring a safe new campaign.")
+			_recover_from_invalid_save()
+			return
+
+	var saved_research: Variant = data.get("research", research)
+	var saved_day: Variant = data.get("day", day)
+	var saved_region: Variant = data.get("selected_region", selected_region)
+	var saved_event_text: Variant = data.get("event_text", event_text)
+	var saved_ended: Variant = data.get("ended", ended)
+	var saved_timer: Variant = data.get("event_timer", 0.0)
+	var saved_log: Variant = data.get("log_lines", [])
+	if not _is_finite_number(saved_research) or not _is_finite_number(saved_day) or not _is_finite_number(saved_region) or not _is_finite_number(saved_timer):
+		push_warning("Campaign save contains invalid numeric fields; restoring a safe new campaign.")
+		_recover_from_invalid_save()
+		return
+	if typeof(saved_event_text) != TYPE_STRING or typeof(saved_ended) != TYPE_BOOL or not (saved_log is Array):
+		push_warning("Campaign save contains invalid field types; restoring a safe new campaign.")
+		_recover_from_invalid_save()
+		return
+	for line in saved_log:
+		if typeof(line) != TYPE_STRING:
+			push_warning("Campaign log contains invalid data; restoring a safe new campaign.")
+			_recover_from_invalid_save()
+			return
+
 	influence.clear()
 	resilience.clear()
 	upgrades.clear()
 	for value in saved_influence:
 		influence.append(clampf(float(value), 0.0, 100.0))
 	for value in saved_resilience:
-		resilience.append(clampf(float(value), 0.0, 100.0))
+		resilience.append(clampf(float(value), 0.0, 95.0))
 	for value in saved_upgrades:
-		upgrades.append(bool(value))
-	research = maxi(0, int(data.get("research", research)))
-	day = maxi(1, int(data.get("day", day)))
-	selected_region = clampi(int(data.get("selected_region", selected_region)), 0, REGION_NAMES.size() - 1)
-	event_text = str(data.get("event_text", event_text))
-	ended = bool(data.get("ended", ended))
-	event_timer = clampf(float(data.get("event_timer", 0.0)), 0.0, 4.0)
+		upgrades.append(value)
+	research = int(clampf(float(saved_research), 0.0, 1000000.0))
+	day = int(clampf(float(saved_day), 1.0, 1000000.0))
+	selected_region = clampi(int(saved_region), 0, REGION_NAMES.size() - 1)
+	event_text = saved_event_text
+	ended = saved_ended
+	event_timer = clampf(float(saved_timer), 0.0, 4.0)
 	log_lines.clear()
-	var saved_log: Variant = data.get("log_lines", [])
-	if saved_log is Array:
-		for line in saved_log:
-			log_lines.append(str(line))
-		if log_lines.size() > 4:
-			log_lines.resize(4)
+	for line in saved_log:
+		log_lines.append(line)
+	if log_lines.size() > 4:
+		log_lines.resize(4)
