@@ -93,7 +93,7 @@ jobs:
           test -d "$ANDROID_HOME/platform-tools"
           test -d "$ANDROID_HOME/ndk/23.2.8568313"
           mkdir -p "$HOME/.config/godot" build
-          printf '[gd_resource type="EditorSettings" format=3]\\n[resource]\\nexport/android/android_sdk_path = "%s"\\nexport/android/java_sdk_path = "%s"\\n' "$ANDROID_HOME" "$JAVA_HOME" > "$HOME/.config/godot/editor_settings-4.5.tres"
+          printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '[resource]' "export/android/android_sdk_path = \"$ANDROID_HOME\"" "export/android/java_sdk_path = \"$JAVA_HOME\"" > "$HOME/.config/godot/editor_settings-4.5.tres"
           cat "$HOME/.config/godot/editor_settings-4.5.tres"
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "JAVA_HOME=$JAVA_HOME"
