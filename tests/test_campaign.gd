@@ -20,6 +20,11 @@ func _run_tests() -> void:
 	_test_wrong_region_array_lengths()
 	_test_partial_corruption_recovery()
 	_test_numeric_bounds()
+	_test_missing_individual_fields()
+	_test_invalid_timer_and_selected_region()
+	_test_empty_object_recovery()
+	_test_save_again_after_recovery()
+	_test_valid_save_full_round_trip()
 	if failures > 0:
 		push_error("HOLLOWEARTH campaign tests failed: %d" % failures)
 		quit(1)
@@ -379,6 +384,68 @@ func _test_numeric_bounds() -> void:
 	_check(game.selected_region == 0, "Negative selected region must be clamped to the first region.")
 	_check(game.event_timer == 4.0, "Oversized event timer must be clamped to four seconds.")
 	game.free()
+	_cleanup_test_save()
+
+func _test_missing_individual_fields() -> void:
+	for field in ["version", "influence", "resilience", "research", "day", "selected_region", "upgrades", "event_text", "ended", "event_timer", "log_lines"]:
+		var bad := _valid_test_save()
+		bad.erase(field)
+		_assert_invalid_save_recovery(bad, "Save missing field " + field)
+
+func _test_invalid_timer_and_selected_region() -> void:
+	var bad := _valid_test_save()
+	bad["event_timer"] = "not-a-number"
+	_assert_invalid_save_recovery(bad, "String event_timer")
+
+	bad = _valid_test_save()
+	bad["selected_region"] = "Asia"
+	_assert_invalid_save_recovery(bad, "String selected_region")
+
+	bad = _valid_test_save()
+	bad["event_timer"] = -1.0
+	_write_test_save(bad)
+	var game = GAME_SCRIPT.new()
+	game._load_game()
+	_check(game.event_timer == 0.0, "Negative event_timer must be clamped to zero.")
+	game.free()
+	_cleanup_test_save()
+
+func _test_empty_object_recovery() -> void:
+	_assert_invalid_save_recovery({}, "Empty JSON object")
+
+func _test_save_again_after_recovery() -> void:
+	var bad := _valid_test_save()
+	bad["selected_region"] = "damaged"
+	_write_test_save(bad)
+	var recovered = GAME_SCRIPT.new()
+	recovered._load_game()
+	_check(recovered.day == 1 and recovered.research == 20, "Recovery must discard all progress from a partially damaged save.")
+	recovered._save_game()
+	_check(_saved_file_is_valid_v1(), "Saving immediately after recovery must produce a complete version-1 save.")
+	var relaunched = GAME_SCRIPT.new()
+	relaunched._load_game()
+	_check(relaunched.day == 1 and relaunched.research == 20 and relaunched.selected_region == 2, "A second load must preserve the recovered default campaign.")
+	_check(relaunched.influence[0] == 8.0 and relaunched.resilience[5] == 18.0, "A second load must retain safe default region values.")
+	recovered.free()
+	relaunched.free()
+	_cleanup_test_save()
+
+func _test_valid_save_full_round_trip() -> void:
+	_write_test_save(_valid_test_save())
+	var game = GAME_SCRIPT.new()
+	game._load_game()
+	_check(game.day == 9 and game.research == 37, "Valid version-1 save must preserve day and research exactly.")
+	_check(game.selected_region == 4 and game.upgrades[0] and game.upgrades[2], "Valid version-1 save must preserve selected region and upgrades.")
+	_check(game.influence[2] == 12.0 and game.resilience[4] == 48.0, "Valid version-1 save must preserve all region values exactly.")
+	_check(game.event_text == "Save validation test" and game.event_timer == 1.25, "Valid version-1 save must preserve event text and timer.")
+	_check(game.log_lines.size() == 1 and game.log_lines[0] == "DAY 009  •  Save validation test", "Valid version-1 save must preserve campaign log.")
+	game._save_game()
+	var relaunched = GAME_SCRIPT.new()
+	relaunched._load_game()
+	_check(relaunched.day == 9 and relaunched.research == 37 and relaunched.selected_region == 4, "Saving and reloading valid version-1 data must preserve progress.")
+	_check(relaunched.event_timer == 1.25 and relaunched.event_text == "Save validation test", "Saving and reloading must preserve event state.")
+	game.free()
+	relaunched.free()
 	_cleanup_test_save()
 
 func _saved_file_is_valid_v1() -> bool:
