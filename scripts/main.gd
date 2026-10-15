@@ -322,6 +322,12 @@ func _load_game() -> void:
 		_recover_from_invalid_save()
 		return
 	var data: Dictionary = parsed
+	var required_fields: Array[String] = ["version", "influence", "resilience", "research", "day", "selected_region", "upgrades", "event_text", "ended", "event_timer", "log_lines"]
+	for field in required_fields:
+		if not data.has(field):
+			push_warning("Campaign save is missing required field %s; restoring a safe new campaign." % field)
+			_recover_from_invalid_save()
+			return
 	var version: Variant = data.get("version", 1)
 	if not _is_finite_number(version) or int(version) != 1:
 		push_warning("Campaign save version is unsupported; restoring a safe new campaign.")
